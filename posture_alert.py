@@ -59,6 +59,7 @@ DEFAULTS = {
     "away_after_movement_seconds": 10,
     "headphones_off_still_seconds": 30,  # Puck hasn't changed angle for this long + off the pillow = headphones off
     "offline_seconds": 90,            # warn if the Puck goes quiet this long
+    "low_battery_percent": 20,        # warn once when the Puck's battery drops to this
     "calibration_countdown_seconds": 3,
     "volume": 0.6,                    # 0.0 - 1.0
     "game_processes": [],             # e.g. ["eldenring.exe", "cs2.exe"] -> gaming mode auto
@@ -201,6 +202,7 @@ class PostureMonitor:
         self.gaming_manual = False
         self.gaming_auto = False
         self.offline_warned = False
+        self.low_battery_warned = False
 
         self.minute_key = None
         self.minute = {"good": 0.0, "drifting": 0.0, "alert": 0.0, "away": 0.0}
@@ -342,6 +344,7 @@ class PostureMonitor:
         with self.lock:
             dt, self.last_tick = now - self.last_tick, now
             self.maybe_reload_config(now)
+            self.check_battery()
             if now - self.last_game_check > 10:
                 self.last_game_check = now
                 self.gaming_auto = game_running(self.cfg.get("game_processes"))
@@ -377,6 +380,16 @@ class PostureMonitor:
 
             self.accumulate(category, dt)
         self.update_icon()
+
+    def check_battery(self):
+        limit = self.cfg.get("low_battery_percent", 20)
+        if self.battery is None or not limit:
+            return
+        if self.battery <= limit and not self.low_battery_warned:
+            self.low_battery_warned = True
+            self.notify(f"Puck battery is at {self.battery}%. Time to swap in a fresh CR2032.")
+        elif self.battery > limit + 15:
+            self.low_battery_warned = False   # new battery fitted
 
     def evaluate_posture(self, now):
         pos = self.position()

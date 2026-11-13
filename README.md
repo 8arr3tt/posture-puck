@@ -96,6 +96,7 @@ Right-click > **Open settings file**. Edit and save; the app picks up changes wi
 | `away_after_movement_seconds` | 10 | Stay quiet this long after the Puck senses walking |
 | `headphones_off_still_seconds` | 30 | If the Puck hasn't changed angle for this long and you're off the pillow, the headphones are off (on the desk), so stay quiet. 0 turns this off |
 | `offline_seconds` | 90 | Warn once if the Puck goes silent this long |
+| `low_battery_percent` | 20 | Pop-up warning when the Puck's battery drops to this |
 | `volume` | 0.6 | Alert volume, 0.0 to 1.0 |
 | `game_processes` | [] | Games that switch on gaming mode automatically, e.g. `["cs2.exe", "eldenring.exe"]` (find the name in Task Manager > Details) |
 | `show_notifications` | true | Windows pop-up notifications alongside sounds |
@@ -103,6 +104,15 @@ Right-click > **Open settings file**. Edit and save; the app picks up changes wi
 | `contact`, `limit` | | Your calibration values (set via calibration, but you can nudge them by hand) |
 
 Logs: one CSV per day in the log folder (right-click > Open log folder), with seconds per minute spent good, drifting, alerting and away.
+
+## Battery
+
+The Puck runs on a CR2032 coin cell. To make it last, the firmware:
+- takes one magnetometer reading and sends one broadcast per second while you're wearing it
+- uses the accelerometer's 1.6 Hz low-power mode
+- drops into a resting mode once it hasn't moved for a minute (headphones on the desk, overnight): a reading every 10 seconds and a broadcast every 2 seconds. It wakes as soon as it's moved, or if the field changes noticeably.
+
+Expect a battery to last a few months rather than weeks, depending on how many hours a day you wear it. The tray app warns you at 20%. Calibration is stored in the PC app, and the firmware is saved in the Puck's flash, so a battery swap needs no setup.
 
 ## Troubleshooting
 
