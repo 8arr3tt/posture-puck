@@ -22,7 +22,9 @@ import struct
 import sys
 import threading
 import time
+import statistics
 import wave
+from collections import deque
 from datetime import datetime
 from pathlib import Path
 
@@ -60,7 +62,8 @@ DEFAULTS = {
     "headphones_off_still_seconds": 30,  # Puck hasn't changed angle for this long + off the pillow = headphones off
     "offline_seconds": 90,            # warn if the Puck goes quiet this long
     "low_battery_percent": 20,        # warn once when the Puck's battery drops to this
-    "calibration_countdown_seconds": 3,
+    "calibration_countdown_seconds": 3,   # time to get into position (tray menu only)
+    "calibration_settle_seconds": 6,      # then hold still this long while it measures
     "volume": 0.6,                    # 0.0 - 1.0
     "game_processes": [],             # e.g. ["eldenring.exe", "cs2.exe"] -> gaming mode auto
     "show_notifications": True,
@@ -192,6 +195,8 @@ class PostureMonitor:
         self.last_btn_seq = None
         self.adapter_error = None
         self.still_s = 0
+        self.raw_history = deque(maxlen=120)   # (time, field) of recent packets, for calibration
+        self.calibrating = False
 
         self.state = "Waiting for Puck"
         self.bad_since = None
@@ -259,6 +264,7 @@ class PostureMonitor:
             now = time.monotonic()
             if not math.isfinite(field):
                 return
+            self.raw_history.append((now, field))
             self.smoothed = field if self.smoothed is None else self.smoothed + 0.4 * (field - self.smoothed)
             self.moving = moving
             if moving:
@@ -280,9 +286,9 @@ class PostureMonitor:
         if presses == 1:
             self.toggle_snooze()
         elif presses == 2:
-            self.set_point("contact")
+            self.calibrate("contact", countdown=0)
         elif presses == 3:
-            self.set_point("limit")
+            self.calibrate("limit", countdown=0)
         elif presses == 4:
             self.toggle_gaming()
 
@@ -309,13 +315,8 @@ class PostureMonitor:
             self.bad_since, self.alerting = None, False
         play("tick")
 
-    def set_point(self, which):
+    def set_point(self, which, value):
         with self.lock:
-            value = self.smoothed
-            if value is None:
-                play("error")
-                self.notify("No reading from the Puck yet, so calibration wasn't saved.")
-                return
             self.cfg[which] = round(float(value), 2)
             save_config(self.cfg)
             self.cfg_mtime = CONFIG_PATH.stat().st_mtime
@@ -330,12 +331,42 @@ class PostureMonitor:
         label = "Contact" if which == "contact" else "Limit"
         self.notify(f"{label} saved ({value:.0f}).")
 
-    def calibrate_with_countdown(self, which):
+    def calibrate(self, which, countdown=None):
+        """Wait for you to get into position, then measure while you hold still.
+
+        The Puck smooths its reading and sends it once a second, so it takes a
+        few seconds to settle after you move. This waits for that and uses the
+        middle value of the last few seconds instead of a single snapshot.
+        """
+        if self.calibrating:
+            return
+        if countdown is None:
+            countdown = int(self.cfg.get("calibration_countdown_seconds", 3))
+        settle = max(3.0, float(self.cfg.get("calibration_settle_seconds", 6)))
+
         def run():
-            for _ in range(int(self.cfg.get("calibration_countdown_seconds", 3))):
-                play("tick")
-                time.sleep(1)
-            self.set_point(which)
+            self.calibrating = True
+            try:
+                for _ in range(countdown):
+                    play("tick")
+                    time.sleep(1)
+                self.notify("Hold still while it measures...")
+                start = time.monotonic()
+                time.sleep(settle)
+                with self.lock:
+                    window = [v for t, v in self.raw_history if t >= start + settle - 3]
+                if len(window) < 2:
+                    play("error")
+                    self.notify("Not enough readings from the Puck, so calibration wasn't saved. Try again.")
+                    return
+                value = statistics.median(window)
+                if max(window) - min(window) > 0.1 * abs(value):
+                    play("error")
+                    self.notify("The reading kept changing. Hold still and try again.")
+                    return
+                self.set_point(which, value)
+            finally:
+                self.calibrating = False
         threading.Thread(target=run, daemon=True).start()
 
     # -- main loop, called ~4x per second --
@@ -619,8 +650,8 @@ def run_tray():
         M("Pause", lambda: mon.toggle_pause(), checked=lambda i: mon.paused),
         pystray.Menu.SEPARATOR,
         M("Calibrate", pystray.Menu(
-            M("Set contact (sit back on the pillow)", lambda: mon.calibrate_with_countdown("contact")),
-            M("Set limit (lean to your furthest OK point)", lambda: mon.calibrate_with_countdown("limit")),
+            M("Set contact (sit back on the pillow)", lambda: mon.calibrate("contact")),
+            M("Set limit (lean to your furthest OK point)", lambda: mon.calibrate("limit")),
         )),
         M("Open settings file", lambda: os.startfile(str(CONFIG_PATH))),
         M("Open log folder", lambda: (LOG_DIR.mkdir(parents=True, exist_ok=True), os.startfile(str(LOG_DIR)))),

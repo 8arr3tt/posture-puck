@@ -53,7 +53,9 @@ Either use the tray menu (right-click the dot > Calibrate) or the Puck's button:
 | Sit back with your neck on the pillow | Set contact | 2 presses |
 | Lean to the furthest point you're OK with | Set limit | 3 presses |
 
-The tray menu gives you a 3-tick countdown to get into position. Each saved point plays confirmation beeps (2 or 3). A low two-tone sound means it didn't work. Usually that means contact and limit were too similar, so lean further for the limit.
+The tray menu gives you a 3-tick countdown to get into position. Then hold still for about 6 seconds while it measures. The reading takes a few seconds to settle, so the app waits for it rather than taking a snapshot. With the Puck's button, it starts measuring as soon as you've pressed.
+
+Each saved point plays confirmation beeps (2 or 3). A low two-tone sound means it didn't work: either you moved during the measurement, or contact and limit came out too similar, so lean further for the limit.
 
 ## Everyday use
 
