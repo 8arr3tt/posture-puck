@@ -63,7 +63,7 @@ DEFAULTS = {
     "offline_seconds": 90,            # warn if the Puck goes quiet this long
     "low_battery_percent": 20,        # warn once when the Puck's battery drops to this
     "calibration_countdown_seconds": 3,   # time to get into position (tray menu only)
-    "calibration_settle_seconds": 6,      # then hold still this long while it measures
+    "calibration_settle_seconds": 10,     # then hold still this long while it measures
     "volume": 0.6,                    # 0.0 - 1.0
     "game_processes": [],             # e.g. ["eldenring.exe", "cs2.exe"] -> gaming mode auto
     "show_notifications": True,
@@ -342,7 +342,7 @@ class PostureMonitor:
             return
         if countdown is None:
             countdown = int(self.cfg.get("calibration_countdown_seconds", 3))
-        settle = max(3.0, float(self.cfg.get("calibration_settle_seconds", 6)))
+        settle = max(4.0, float(self.cfg.get("calibration_settle_seconds", 10)))
 
         def run():
             self.calibrating = True
@@ -354,7 +354,7 @@ class PostureMonitor:
                 start = time.monotonic()
                 time.sleep(settle)
                 with self.lock:
-                    window = [v for t, v in self.raw_history if t >= start + settle - 3]
+                    window = [v for t, v in self.raw_history if t >= start + settle / 2]  # second half, once settled
                 if len(window) < 2:
                     play("error")
                     self.notify("Not enough readings from the Puck, so calibration wasn't saved. Try again.")
