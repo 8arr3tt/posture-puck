@@ -110,9 +110,9 @@ Logs: one CSV per day in the log folder (right-click > Open log folder), with se
 ## Battery
 
 The Puck runs on a CR2032 coin cell. To make it last, the firmware:
-- takes one magnetometer reading and sends one broadcast per second while you're wearing it
+- takes one magnetometer reading a second while you're wearing it, broadcasting it about three times a second so it still gets through when your head is between the Puck and the PC
 - uses the accelerometer's 1.6 Hz low-power mode
-- drops into a resting mode once it hasn't moved for a minute (headphones on the desk, overnight): a reading every 10 seconds and a broadcast every 2 seconds. It wakes as soon as it's moved, or if the field changes noticeably.
+- drops into a resting mode once it hasn't moved for a minute (headphones on the desk, overnight): a reading every 10 seconds, broadcast once a second. It wakes as soon as it's moved, or if the field changes noticeably.
 
 Expect a battery to last a few months rather than weeks, depending on how many hours a day you wear it. The tray app warns you at 20%. Calibration is stored in the PC app, and the firmware is saved in the Puck's flash, so a battery swap needs no setup.
 

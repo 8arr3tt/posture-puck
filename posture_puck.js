@@ -5,10 +5,11 @@
 // the Windows companion app, which decides when to alert.
 //
 // Built to sip power from a CR2032:
-//   - Active (being worn): 1 magnetometer reading and 1 broadcast per second,
-//     accelerometer in its 1.6 Hz low-power mode.
+//   - Active (being worn): 1 magnetometer reading per second, sent ~3 times a
+//     second so a weak signal still gets through; accelerometer in its 1.6 Hz
+//     low-power mode.
 //   - Resting (hasn't changed angle for a minute, e.g. headphones on the desk):
-//     a magnetometer reading every 10 s and a broadcast every 2 s. Wakes up as
+//     a magnetometer reading every 10 s, sent once a second. Wakes up as
 //     soon as it's moved, or if the field changes noticeably.
 //
 // Broadcast (Espruino manufacturer ID 0x0590), 11 bytes:
@@ -30,8 +31,10 @@
 // ---- Settings -------------------------------------------------------------
 var ACTIVE_MAG_MS = 1000;   // magnetometer reading interval while worn
 var RESTING_MAG_MS = 10000; // ...and while resting
-var ACTIVE_ADVERT_MS = 1000;
-var RESTING_ADVERT_MS = 2000;
+var ACTIVE_UPDATE_MS = 1000;   // how often the broadcast's contents are refreshed while worn
+var RESTING_UPDATE_MS = 2000;  // ...and while resting
+var ACTIVE_RADIO_MS = 375;     // how often the radio actually sends (several chances per update,
+var RESTING_RADIO_MS = 1000;   // so a weak signal still gets through; sending is cheap)
 var REST_AFTER_S = 60;      // still for this long = resting (low power)
 var WAKE_FIELD_CHANGE = 0.08; // a field change of 8%+ while resting wakes it up
 var MAG_SMOOTH = 0.5;       // 0..1, higher reacts faster, lower is steadier
@@ -108,12 +111,12 @@ function setTimers(magMs, advertMs) {
 
 function wake() {
   resting = false;
-  setTimers(ACTIVE_MAG_MS, ACTIVE_ADVERT_MS);
+  setTimers(ACTIVE_MAG_MS, ACTIVE_UPDATE_MS);
 }
 
 function rest() {
   resting = true;
-  setTimers(RESTING_MAG_MS, RESTING_ADVERT_MS);
+  setTimers(RESTING_MAG_MS, RESTING_UPDATE_MS);
 }
 
 // ---- Button gestures --------------------------------------------------------
@@ -161,7 +164,7 @@ function advertise() {
     name: "Posture",
     manufacturer: 0x0590,
     manufacturerData: arr,
-    interval: resting ? RESTING_ADVERT_MS : ACTIVE_ADVERT_MS
+    interval: resting ? RESTING_RADIO_MS : ACTIVE_RADIO_MS
   });
 }
 
